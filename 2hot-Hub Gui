@@ -1,0 +1,226 @@
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local guiParent = (gethui and gethui()) or LocalPlayer:WaitForChild("PlayerGui")
+if guiParent:FindFirstChild("ModernSidebarGUI") then
+    guiParent:FindFirstChild("ModernSidebarGUI"):Destroy()
+end
+local CONFIG = {
+    Width = 600,
+    Height = 350,
+    SidebarWidth = 140,
+    AccentColor = Color3.fromRGB(0,170,255),
+    Background = Color3.fromRGB(25,25,25),
+    Panel = Color3.fromRGB(35,35,35),
+    TextColor = Color3.fromRGB(240,240,240),
+}
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ModernSidebarGUI"
+screenGui.Parent = guiParent
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, CONFIG.Width, 0, CONFIG.Height)
+main.Position = UDim2.new(0.2,0,0.2,0)
+main.BackgroundColor3 = CONFIG.Background
+main.Parent = screenGui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+do
+    local dragging = false
+    local dragInput, dragStart, startPos
+    main.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    main.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1,0,0,36)
+topBar.BackgroundColor3 = CONFIG.Panel
+topBar.Parent = main
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0,200,1,0)
+title.Position = UDim2.new(0,10,0,0)
+title.BackgroundTransparency = 1
+title.Text = "ModernSidebarGUI"
+title.TextColor3 = CONFIG.TextColor
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = topBar
+local function createBtn(txt, offset)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0,28,0,28)
+    btn.Position = UDim2.new(1,offset,0.5,-14)
+    btn.AnchorPoint = Vector2.new(1,0)
+    btn.BackgroundColor3 = CONFIG.Panel
+    btn.Text = txt
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 18
+    btn.TextColor3 = CONFIG.TextColor
+    btn.BorderSizePixel = 0
+    btn.Parent = topBar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+    return btn
+end
+local closeBtn = createBtn("X",-10)
+local minBtn = createBtn("-", -45)
+local maxBtn = createBtn("+", -80)
+local sidebar = Instance.new("Frame")
+sidebar.Size = UDim2.new(0, CONFIG.SidebarWidth,1, -36)
+sidebar.Position = UDim2.new(0,0,0,36)
+sidebar.BackgroundColor3 = CONFIG.Panel
+sidebar.Parent = main
+Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0,12)
+local function makeTab(name, yPos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,0,0,40)
+    btn.Position = UDim2.new(0,0,0,yPos)
+    btn.BackgroundTransparency = 1
+    btn.Text = name
+    btn.TextColor3 = CONFIG.TextColor
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.Parent = sidebar
+    return btn
+end
+local homeBtn = makeTab("Home",20)
+local settingsBtn = makeTab("Settings",70)
+local terminalBtn = makeTab("Terminal",120)
+local consoleBtn = makeTab("Console",170)
+local pages = Instance.new("Frame")
+pages.Size = UDim2.new(1,-CONFIG.SidebarWidth,1,-36)
+pages.Position = UDim2.new(0,CONFIG.SidebarWidth,0,36)
+pages.BackgroundTransparency = 1
+pages.Parent = main
+local function switchPage(page)
+    for _,v in pairs(pages:GetChildren()) do
+        v.Visible = false
+    end
+    page.Visible = true
+end
+local homePage = Instance.new("Frame")
+homePage.Size = UDim2.new(1,0,1,0)
+homePage.BackgroundTransparency = 1
+homePage.Parent = pages
+homePage.Visible = true
+local homeLabel = Instance.new("TextLabel")
+homeLabel.Size = UDim2.new(1,0,0,50)
+homeLabel.Position = UDim2.new(0,0,0,10)
+homeLabel.BackgroundTransparency = 1
+homeLabel.Text = "🏠 Home"
+homeLabel.TextColor3 = CONFIG.TextColor
+homeLabel.Font = Enum.Font.GothamBold
+homeLabel.TextSize = 22
+homeLabel.Parent = homePage
+local terminalPage = Instance.new("Frame")
+terminalPage.Size = UDim2.new(1,0,1,0)
+terminalPage.BackgroundTransparency = 1
+terminalPage.Parent = pages
+terminalPage.Visible = false
+
+local termInput = Instance.new("TextBox")
+termInput.Size = UDim2.new(1,-50,1,-50)
+termInput.Position = UDim2.new(0,10,0,10)
+termInput.BackgroundColor3 = CONFIG.Panel
+termInput.TextColor3 = CONFIG.TextColor
+termInput.Text = " "
+termInput.ClearTextOnFocus = false
+termInput.MultiLine = true
+termInput.Font = Enum.Font.Code
+termInput.TextSize = 14
+termInput.TextXAlignment = Enum.TextXAlignment.Left
+termInput.TextYAlignment = Enum.TextYAlignment.Top
+termInput.Parent = terminalPage
+Instance.new("UICorner", termInput).CornerRadius = UDim.new(0,6)
+
+-- Run Button
+local runButton = Instance.new("TextButton")
+runButton.Size = UDim2.new(0,70,0,28)
+runButton.Position = UDim2.new(1,-80,1,-35)
+runButton.BackgroundColor3 = CONFIG.AccentColor
+runButton.Text = "Run ▶"
+runButton.TextColor3 = Color3.fromRGB(255,255,255)
+runButton.Font = Enum.Font.GothamBold
+runButton.TextSize = 14
+runButton.Parent = terminalPage
+Instance.new("UICorner", runButton).CornerRadius = UDim.new(0,6)
+
+-- Terminal execution
+runButton.MouseButton1Click:Connect(function()
+    local code = termInput.Text
+    if code ~= "" then
+        local func, err = loadstring(code)
+        if func then
+            local success, execErr = pcall(func)
+            if not success then warn(execErr) end
+        else
+            warn(err)
+        end
+    end
+end)
+
+-- Console Page
+local consolePage = Instance.new("Frame")
+consolePage.Size = UDim2.new(1,0,1,0)
+consolePage.BackgroundTransparency = 1
+consolePage.Parent = pages
+consolePage.Visible = false
+
+local consoleBox = Instance.new("TextLabel")
+consoleBox.Size = UDim2.new(1,-20,1,-20)
+consoleBox.Position = UDim2.new(0,10,0,10)
+consoleBox.BackgroundColor3 = CONFIG.Panel
+consoleBox.TextColor3 = CONFIG.TextColor
+consoleBox.TextXAlignment = Enum.TextXAlignment.Left
+consoleBox.TextYAlignment = Enum.TextYAlignment.Top
+consoleBox.Font = Enum.Font.Code
+consoleBox.TextSize = 14
+consoleBox.Text = ""
+consoleBox.TextWrapped = false
+consoleBox.Parent = consolePage
+Instance.new("UICorner", consoleBox).CornerRadius = UDim.new(0,6)
+
+-- Redirect print/warn
+local oldPrint, oldWarn = print, warn
+print = function(...)
+    local msg = table.concat({...}," ")
+    consoleBox.Text = consoleBox.Text.."\n"..msg
+    oldPrint(msg)
+end
+warn = function(...)
+    local msg = table.concat({...}," ")
+    consoleBox.Text = consoleBox.Text.."\n⚠ "..msg
+    oldWarn(msg)
+end
+
+-- Tab switching
+homeBtn.MouseButton1Click:Connect(function() switchPage(homePage) end)
+settingsBtn.MouseButton1Click:Connect(function() switchPage(homePage) end)
+terminalBtn.MouseButton1Click:Connect(function() switchPage(terminalPage) end)
+consoleBtn.MouseButton1Click:Connect(function() switchPage(consolePage) end)
+
+-- Close button
+closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+
+-- Init
+switchPage(homePage)
+print("✅ ModernSidebarGUI Loaded")
