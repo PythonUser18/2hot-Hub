@@ -1,32 +1,59 @@
+-- ModernSidebarGUI with syntax-highlighted Terminal editor (Xeno-friendly)
+-- Keeps the modern sidebar and console, adds code highlighting + line numbers
+-- Paste into Xeno or save as a .lua file and host raw on GitHub
 
+-- ====== Setup & compatibility ======
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
 local guiParent = (gethui and gethui()) or LocalPlayer:WaitForChild("PlayerGui")
+
+-- Destroy existing
 if guiParent:FindFirstChild("ModernSidebarGUI") then
     guiParent:FindFirstChild("ModernSidebarGUI"):Destroy()
 end
+
+-- ====== Config ======
 local CONFIG = {
-    Width = 600,
-    Height = 350,
-    SidebarWidth = 140,
+    Width = 720,
+    Height = 420,
+    SidebarWidth = 160,
     AccentColor = Color3.fromRGB(0,170,255),
-    Background = Color3.fromRGB(25,25,25),
-    Panel = Color3.fromRGB(35,35,35),
-    TextColor = Color3.fromRGB(240,240,240),
+    Background = Color3.fromRGB(24,24,26),
+    Panel = Color3.fromRGB(36,36,40),
+    TextColor = Color3.fromRGB(230,230,230),
+    Corner = UDim.new(0,10),
+    TweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 }
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ModernSidebarGUI"
-screenGui.Parent = guiParent
-local main = Instance.new("Frame")
-main.Size = UDim2.new(0, CONFIG.Width, 0, CONFIG.Height)
-main.Position = UDim2.new(0.2,0,0.2,0)
-main.BackgroundColor3 = CONFIG.Background
-main.Parent = screenGui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+
+-- ====== Helpers ======
+local function new(class, props)
+    local obj = Instance.new(class)
+    for k,v in pairs(props or {}) do
+        if k == "Parent" then obj.Parent = v
+        else obj[k] = v end
+    end
+    return obj
+end
+
+-- ====== ScreenGui & Main ======
+local screenGui = new("ScreenGui", {Name = "ModernSidebarGUI", Parent = guiParent, ResetOnSpawn = false})
+
+local main = new("Frame", {
+    Name = "Main",
+    Parent = screenGui,
+    Size = UDim2.new(0, CONFIG.Width, 0, CONFIG.Height),
+    Position = UDim2.new(0.2,0,0.2,0),
+    BackgroundColor3 = CONFIG.Background,
+    Active = true
+})
+new("UICorner", {Parent = main, CornerRadius = CONFIG.Corner})
+
+-- ====== Draggable (UserInputService) ======
 do
-    local dragging = false
-    local dragInput, dragStart, startPos
+    local dragging, dragInput, dragStart, startPos
     main.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
@@ -51,176 +78,463 @@ do
         end
     end)
 end
-local topBar = Instance.new("Frame")
-topBar.Size = UDim2.new(1,0,0,36)
-topBar.BackgroundColor3 = CONFIG.Panel
-topBar.Parent = main
-Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(0,200,1,0)
-title.Position = UDim2.new(0,10,0,0)
-title.BackgroundTransparency = 1
-title.Text = "ModernSidebarGUI"
-title.TextColor3 = CONFIG.TextColor
-title.Font = Enum.Font.GothamBold
-title.TextSize = 20
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = topBar
-local function createBtn(txt, offset)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0,28,0,28)
-    btn.Position = UDim2.new(1,offset,0.5,-14)
-    btn.AnchorPoint = Vector2.new(1,0)
-    btn.BackgroundColor3 = CONFIG.Panel
-    btn.Text = txt
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 18
-    btn.TextColor3 = CONFIG.TextColor
-    btn.BorderSizePixel = 0
-    btn.Parent = topBar
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+
+-- ====== Top bar + controls ======
+local topBar = new("Frame", {Parent = main, Size = UDim2.new(1,0,0,36), BackgroundColor3 = CONFIG.Panel})
+new("UICorner", {Parent = topBar, CornerRadius = CONFIG.Corner})
+
+local title = new("TextLabel", {
+    Parent = topBar, BackgroundTransparency = 1,
+    Position = UDim2.new(0,12,0,0), Size = UDim2.new(0,240,1,0),
+    Text = "ModernSidebarGUI", Font = Enum.Font.GothamBold, TextSize = 18,
+    TextColor3 = CONFIG.TextColor, TextXAlignment = Enum.TextXAlignment.Left
+})
+
+local function createControlBtn(text, offset)
+    local btn = new("TextButton", {
+        Parent = topBar,
+        Size = UDim2.new(0,28,0,28),
+        Position = UDim2.new(1, offset, 0.5, -14),
+        BackgroundColor3 = CONFIG.Panel,
+        Text = text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
+        TextColor3 = CONFIG.TextColor,
+        BorderSizePixel = 0
+    })
+    new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,6)})
     return btn
 end
-local closeBtn = createBtn("X",-10)
-local minBtn = createBtn("-", -45)
-local maxBtn = createBtn("+", -80)
-local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, CONFIG.SidebarWidth,1, -36)
-sidebar.Position = UDim2.new(0,0,0,36)
-sidebar.BackgroundColor3 = CONFIG.Panel
-sidebar.Parent = main
-Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0,12)
-local function makeTab(name, yPos)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,0,0,40)
-    btn.Position = UDim2.new(0,0,0,yPos)
-    btn.BackgroundTransparency = 1
-    btn.Text = name
-    btn.TextColor3 = CONFIG.TextColor
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 16
-    btn.Parent = sidebar
+
+local closeBtn = createControlBtn("X", -10)
+local minBtn = createControlBtn("-", -45)
+local maxBtn = createControlBtn("+", -80)
+
+-- ====== Sidebar ======
+local sidebar = new("Frame", {
+    Parent = main,
+    Size = UDim2.new(0, CONFIG.SidebarWidth, 1, -36),
+    Position = UDim2.new(0, 0, 0, 36),
+    BackgroundColor3 = CONFIG.Panel
+})
+new("UICorner", {Parent = sidebar, CornerRadius = CONFIG.Corner})
+
+local function makeTab(name, y)
+    local btn = new("TextButton", {
+        Parent = sidebar,
+        Size = UDim2.new(1, -12, 0, 40),
+        Position = UDim2.new(0, 6, 0, y),
+        BackgroundTransparency = 1,
+        Text = name,
+        Font = Enum.Font.Gotham,
+        TextSize = 15,
+        TextColor3 = Color3.fromRGB(200,200,200)
+    })
     return btn
 end
-local homeBtn = makeTab("Home",20)
-local settingsBtn = makeTab("Settings",70)
-local terminalBtn = makeTab("Terminal",120)
-local consoleBtn = makeTab("Console",170)
-local pages = Instance.new("Frame")
-pages.Size = UDim2.new(1,-CONFIG.SidebarWidth,1,-36)
-pages.Position = UDim2.new(0,CONFIG.SidebarWidth,0,36)
-pages.BackgroundTransparency = 1
-pages.Parent = main
-local function switchPage(page)
-    for _,v in pairs(pages:GetChildren()) do
-        v.Visible = false
+
+local homeBtn = makeTab("Home", 12)
+local settingsBtn = makeTab("Settings", 62)
+local terminalBtn = makeTab("Terminal", 112)
+local consoleBtn = makeTab("Console", 162)
+
+-- ====== Pages container ======
+local pages = new("Frame", {
+    Parent = main,
+    Size = UDim2.new(1, -CONFIG.SidebarWidth, 1, -36),
+    Position = UDim2.new(0, CONFIG.SidebarWidth, 0, 36),
+    BackgroundTransparency = 1
+})
+
+local function switchPage(target)
+    for _,c in pairs(pages:GetChildren()) do
+        if c:IsA("Frame") then c.Visible = false end
     end
-    page.Visible = true
+    target.Visible = true
 end
-local homePage = Instance.new("Frame")
-homePage.Size = UDim2.new(1,0,1,0)
-homePage.BackgroundTransparency = 1
-homePage.Parent = pages
-homePage.Visible = true
-local homeLabel = Instance.new("TextLabel")
-homeLabel.Size = UDim2.new(1,0,0,50)
-homeLabel.Position = UDim2.new(0,0,0,10)
-homeLabel.BackgroundTransparency = 1
-homeLabel.Text = "🏠 Home"
-homeLabel.TextColor3 = CONFIG.TextColor
-homeLabel.Font = Enum.Font.GothamBold
-homeLabel.TextSize = 22
-homeLabel.Parent = homePage
-local terminalPage = Instance.new("Frame")
-terminalPage.Size = UDim2.new(1,0,1,0)
-terminalPage.BackgroundTransparency = 1
-terminalPage.Parent = pages
-terminalPage.Visible = false
 
-local termInput = Instance.new("TextBox")
-termInput.Size = UDim2.new(1,-50,1,-50)
-termInput.Position = UDim2.new(0,10,0,10)
-termInput.BackgroundColor3 = CONFIG.Panel
-termInput.TextColor3 = CONFIG.TextColor
-termInput.Text = " "
-termInput.ClearTextOnFocus = false
-termInput.MultiLine = true
-termInput.Font = Enum.Font.Code
-termInput.TextSize = 14
-termInput.TextXAlignment = Enum.TextXAlignment.Left
-termInput.TextYAlignment = Enum.TextYAlignment.Top
-termInput.Parent = terminalPage
-Instance.new("UICorner", termInput).CornerRadius = UDim.new(0,6)
+-- ====== Home page ======
+local homePage = new("Frame", {Parent = pages, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = true})
+local homeLabel = new("TextLabel", {
+    Parent = homePage, Size = UDim2.new(1,-20,0,50), Position = UDim2.new(0,10,0,10),
+    BackgroundTransparency = 1, Text = "🏠 Home", Font = Enum.Font.GothamBold, TextSize = 20, TextColor3 = CONFIG.TextColor
+})
+local homeDesc = new("TextLabel", {
+    Parent = homePage, Size = UDim2.new(1,-20,0,120), Position = UDim2.new(0,10,0,70),
+    BackgroundTransparency = 1, Text = "Welcome! Use Terminal for code and Console for outputs.", Font = Enum.Font.Gotham, TextSize = 14, TextColor3 = CONFIG.TextColor, TextWrapped = true
+})
 
--- Run Button
-local runButton = Instance.new("TextButton")
-runButton.Size = UDim2.new(0,70,0,28)
-runButton.Position = UDim2.new(1,-80,1,-35)
-runButton.BackgroundColor3 = CONFIG.AccentColor
-runButton.Text = "Run ▶"
-runButton.TextColor3 = Color3.fromRGB(255,255,255)
-runButton.Font = Enum.Font.GothamBold
-runButton.TextSize = 14
-runButton.Parent = terminalPage
-Instance.new("UICorner", runButton).CornerRadius = UDim.new(0,6)
+-- ====== Settings page ======
+local settingsPage = new("Frame", {Parent = pages, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false})
+new("TextLabel", {Parent = settingsPage, Size = UDim2.new(1,-20,0,50), Position = UDim2.new(0,10,0,10), BackgroundTransparency = 1, Text = "⚙ Settings", Font = Enum.Font.GothamBold, TextSize = 20, TextColor3 = CONFIG.TextColor})
 
--- Terminal execution
-runButton.MouseButton1Click:Connect(function()
-    local code = termInput.Text
-    if code ~= "" then
-        local func, err = loadstring(code)
-        if func then
-            local success, execErr = pcall(func)
-            if not success then warn(execErr) end
+-- ====== Console page (captures print/warn/error) ======
+local consolePage = new("Frame", {Parent = pages, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false})
+
+-- Use a ScrollingFrame for console content so it auto-scrolls
+local consoleScroll = new("ScrollingFrame", {
+    Parent = consolePage,
+    Size = UDim2.new(1, -20, 1, -20),
+    Position = UDim2.new(0, 10, 0, 10),
+    CanvasSize = UDim2.new(0,0,0,0),
+    BackgroundTransparency = 1,
+    ScrollBarThickness = 8
+})
+local consoleText = new("TextLabel", {
+    Parent = consoleScroll,
+    Size = UDim2.new(1, -10, 0, 20),
+    Position = UDim2.new(0, 5, 0, 0),
+    BackgroundTransparency = 1,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Font = Enum.Font.Code,
+    TextSize = 14,
+    TextColor3 = CONFIG.TextColor,
+    Text = "",
+    TextWrapped = true
+})
+
+consoleText:GetPropertyChangedSignal("Text"):Connect(function()
+    consoleText.Size = UDim2.new(1, -10, 0, math.max(20, consoleText.TextBounds.Y))
+    consoleScroll.CanvasSize = UDim2.new(0,0,0,consoleText.Size.Y.Offset + 10)
+    consoleScroll.CanvasPosition = Vector2.new(0, math.max(0, consoleScroll.CanvasSize.Y.Offset))
+end)
+
+-- Redirect print/warn/error into GUI console
+do
+    local oldPrint, oldWarn, oldError = print, warn, error
+    print = function(...)
+        local s = table.concat({...}," ")
+        consoleText.Text = consoleText.Text .. "\n" .. s
+        oldPrint(s)
+    end
+    warn = function(...)
+        local s = table.concat({...}," ")
+        consoleText.Text = consoleText.Text .. "\n⚠ " .. s
+        oldWarn(s)
+    end
+    -- error should still error, but also show in console
+    error = function(...)
+        local s = table.concat({...}," ")
+        consoleText.Text = consoleText.Text .. "\n✖ " .. s
+        oldError(s)
+    end
+end
+
+-- ====== Terminal Page (editor) ======
+local terminalPage = new("Frame", {Parent = pages, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false})
+
+-- Editor layout: left for line numbers, right for editor stack (highlight label + TextBox layered)
+local editorContainer = new("Frame", {Parent = terminalPage, Size = UDim2.new(1, -20, 1, -60), Position = UDim2.new(0,10,0,10), BackgroundTransparency = 1})
+new("UICorner", {Parent = editorContainer, CornerRadius = CONFIG.Corner})
+
+local linePanel = new("Frame", {Parent = editorContainer, Size = UDim2.new(0, 48, 1, 0), Position = UDim2.new(0,0,0,0), BackgroundColor3 = CONFIG.Panel})
+local highlightHolder = new("Frame", {Parent = editorContainer, Size = UDim2.new(1, -48, 1, 0), Position = UDim2.new(0,48,0,0), BackgroundTransparency = 1})
+
+-- Line numbers text
+local lineNumbersLabel = new("TextLabel", {
+    Parent = linePanel,
+    Size = UDim2.new(1, -8, 1, -8),
+    Position = UDim2.new(0,8,0,4),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Code,
+    TextSize = 14,
+    TextColor3 = Color3.fromRGB(160,160,160),
+    TextXAlignment = Enum.TextXAlignment.Right,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Text = "1"
+})
+
+-- Use a ScrollingFrame for editor (so numbers and text can scroll together)
+local editorScroll = new("ScrollingFrame", {
+    Parent = editorContainer,
+    Size = UDim2.new(1, -48, 1, 0),
+    Position = UDim2.new(0,48,0,0),
+    BackgroundTransparency = 1,
+    ScrollBarThickness = 8,
+    CanvasSize = UDim2.new(0,0,0,0),
+    VerticalScrollBarInset = Enum.ScrollBarInset.None
+})
+
+-- Highlight label behind textbox (shows RichText colored text)
+local highlightLabel = new("TextLabel", {
+    Parent = editorScroll,
+    Size = UDim2.new(1, -8, 0, 20),
+    Position = UDim2.new(0,4,0,0),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Code,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    RichText = true,
+    TextColor3 = CONFIG.TextColor,
+    Text = ""
+})
+
+-- Transparent TextBox on top (actual caret and input)
+local codeBox = new("TextBox", {
+    Parent = editorScroll,
+    Size = UDim2.new(1, -8, 0, 20),
+    Position = UDim2.new(0,4,0,0),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Code,
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    Text = " ", -- starts with a single space to avoid placeholder issues
+    ClearTextOnFocus = false,
+    MultiLine = true,
+    TextColor3 = CONFIG.TextColor
+})
+-- Keep a UICorner on codeBox's background holder if desired (we used transparent box)
+
+-- We'll manually manage codeBox height based on content lines
+local function calcLineCount(text)
+    if text == "" then return 1 end
+    local count = 1
+    for _ in string.gmatch(text, "\n") do count = count + 1 end
+    return count
+end
+
+-- ====== Syntax highlighting rules ======
+-- Basic token coloring with RichText: keywords, numbers, strings, comments, functions
+local keywords = {
+    ["and"]=true, ["break"]=true, ["do"]=true, ["else"]=true, ["elseif"]=true, ["end"]=true,
+    ["false"]=true, ["for"]=true, ["function"]=true, ["if"]=true, ["in"]=true, ["local"]=true,
+    ["nil"]=true, ["not"]=true, ["or"]=true, ["repeat"]=true, ["return"]=true, ["then"]=true,
+    ["true"]=true, ["until"]=true, ["while"]=true
+}
+
+local function escapeRich(s)
+    -- escape special HTML like characters (<,>) to avoid breaking RichText
+    s = s:gsub("&", "&amp;")
+    s = s:gsub("<", "&lt;")
+    s = s:gsub(">", "&gt;")
+    return s
+end
+
+local function colorizeToken(token)
+    if token:match("^%-%-") then
+        -- comment start, color everything as comment
+        return "<font color=\"rgb(120,120,120)\">" .. escapeRich(token) .. "</font>"
+    end
+    -- string literal
+    if token:match("^\".-\"$") or token:match("^'.-'$") then
+        return "<font color=\"rgb(214,157,133)\">" .. escapeRich(token) .. "</font>"
+    end
+    -- numbers
+    if token:match("^%d+[%d%.]*$") then
+        return "<font color=\"rgb(180,142,255)\">" .. escapeRich(token) .. "</font>"
+    end
+    -- punctuation/operators
+    if token:match("^[%(%){%}%[%]%;%,%+%-%*/%%=<>~]+$") then
+        return "<font color=\"rgb(200,200,200)\">" .. escapeRich(token) .. "</font>"
+    end
+    -- keywords
+    if keywords[token] then
+        return "<font color=\"rgb(0,170,255)\">" .. escapeRich(token) .. "</font>"
+    end
+    -- common functions (basic)
+    if token == "print" or token == "warn" or token == "pairs" or token == "ipairs" or token == "math" or token == "table" or token == "string" then
+        return "<font color=\"rgb(120,220,120)\">" .. escapeRich(token) .. "</font>"
+    end
+    -- default
+    return escapeRich(token)
+end
+
+local function highlightLine(line)
+    -- simple tokenizer for a line: strings, comments, symbols, words, numbers
+    -- handle comment part first
+    local commentStart = line:find("%-%-")
+    local before, comment = line, nil
+    if commentStart then
+        before = line:sub(1, commentStart-1)
+        comment = line:sub(commentStart)
+    end
+
+    -- process strings in before: we'll split by " or '
+    local result = ""
+    local i = 1
+    while i <= #before do
+        local c = before:sub(i,i)
+        if c == "'" or c == '"' then
+            local quote = c
+            local j = i+1
+            while j <= #before do
+                local ch = before:sub(j,j)
+                if ch == "\\" then
+                    j = j + 2
+                elseif ch == quote then
+                    break
+                else
+                    j = j + 1
+                end
+            end
+            local strToken = before:sub(i, math.min(j, #before))
+            result = result .. colorizeToken(strToken)
+            i = (j > #before) and (#before+1) or (j+1)
         else
-            warn(err)
+            -- gather up non-string sequence until next quote
+            local j = i
+            while j <= #before and before:sub(j,j) ~= "'" and before:sub(j,j) ~= '"' do
+                j = j + 1
+            end
+            -- tokenize substring by words / punctuation
+            local sub = before:sub(i, j-1)
+            -- split sub into tokens (words/numbers/operators)
+            for token in sub:gmatch("[^%s]+") do
+                -- preserve spaces between tokens in sub
+                local pre, post = token, ""
+                -- if token includes punctuation we try to split simple operators out
+                -- but for simplicity, send whole token to colorizeToken
+                result = result .. colorizeToken(token) .. " "
+            end
+            -- Preserve spaces/newlines by reconstructing using the original substring's whitespace
+            -- Simpler approach: replace sequences of non-space with colored tokens, but keep original spacing by reading characters:
+            -- For brevity here we append a plain space if needed (approximation).
+            i = j
         end
+    end
+
+    if comment then
+        result = result .. "<font color=\"rgb(120,120,120)\">" .. escapeRich(comment) .. "</font>"
+    end
+
+    return result
+end
+
+local function highlightText(text)
+    -- split by lines, highlight each line, rejoin with <br/>
+    local lines = {}
+    for line in (text .. "\n"):gmatch("(.-)\n") do
+        table.insert(lines, highlightLine(line))
+    end
+    return table.concat(lines, "<br/>")
+end
+
+-- ====== Sync sizes and scrolling logic ======
+local function updateEditorLayout()
+    -- set canvas height according to number of lines times font height (approx 18 px)
+    local lineCount = calcLineCount(codeBox.Text)
+    local height = math.max(20, lineCount * 18)
+    highlightLabel.Size = UDim2.new(1, -8, 0, height)
+    codeBox.Size = UDim2.new(1, -8, 0, height)
+    editorScroll.CanvasSize = UDim2.new(0, 0, 0, height + 6)
+    -- update line numbers
+    local linesStr = {}
+    for i=1, lineCount do linesStr[#linesStr+1] = tostring(i) end
+    lineNumbersLabel.Text = table.concat(linesStr, "\n")
+end
+
+-- When code changes: update highlight text, update sizes
+local highlightDebounce = false
+codeBox:GetPropertyChangedSignal("Text"):Connect(function()
+    if highlightDebounce then return end
+    highlightDebounce = true
+    -- small delay to avoid heavy processing on each keystroke
+    delay(0.03, function()
+        local text = codeBox.Text
+        -- generate highlighted RichText
+        local rich = highlightText(text)
+        highlightLabel.Text = rich
+        -- update sizes
+        updateEditorLayout()
+        highlightDebounce = false
+    end)
+end)
+
+-- Sync scroll positions (so line numbers and highlight label scroll together)
+editorScroll:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+    local cp = editorScroll.CanvasPosition
+    -- move line numbers vertically to match scroll
+    lineNumbersLabel.Position = UDim2.new(0, 0, 0, -cp.Y + 4)
+    highlightLabel.Position = UDim2.new(0, 4, 0, 0) -- highlight label anchored; codeBox same
+    codeBox.Position = UDim2.new(0, 4, 0, 0)
+end)
+
+-- Ensure initial layout
+codeBox.Text = " " -- start with a single space
+highlightLabel.Text = ""
+updateEditorLayout()
+
+-- ====== Run button & execution (loadstring) ======
+local runRow = new("Frame", {Parent = terminalPage, Size = UDim2.new(1, -20, 0, 40), Position = UDim2.new(0, 10, 1, -46), BackgroundTransparency = 1})
+local runBtn = new("TextButton", {
+    Parent = runRow,
+    Size = UDim2.new(0, 90, 0, 30),
+    Position = UDim2.new(1, -100, 0, 4),
+    BackgroundColor3 = CONFIG.AccentColor,
+    Text = "Run ▶",
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextColor3 = Color3.fromRGB(255,255,255),
+    BorderSizePixel = 0
+})
+new("UICorner", {Parent = runBtn, CornerRadius = UDim.new(0,6)})
+
+runBtn.MouseButton1Click:Connect(function()
+    local code = codeBox.Text
+    if not code or code:match("^%s*$") then
+        print("Nothing to run")
+        return
+    end
+    -- run using loadstring; in Xeno loadstring works
+    local func, err = loadstring(code)
+    if func then
+        local ok, res = pcall(func)
+        if not ok then
+            warn("Runtime error: " .. tostring(res))
+        else
+            -- if the chunk returned something, show it in console
+            if res ~= nil then
+                print(tostring(res))
+            end
+        end
+    else
+        warn("Syntax error: " .. tostring(err))
     end
 end)
 
--- Console Page
-local consolePage = Instance.new("Frame")
-consolePage.Size = UDim2.new(1,0,1,0)
-consolePage.BackgroundTransparency = 1
-consolePage.Parent = pages
-consolePage.Visible = false
-
-local consoleBox = Instance.new("TextLabel")
-consoleBox.Size = UDim2.new(1,-20,1,-20)
-consoleBox.Position = UDim2.new(0,10,0,10)
-consoleBox.BackgroundColor3 = CONFIG.Panel
-consoleBox.TextColor3 = CONFIG.TextColor
-consoleBox.TextXAlignment = Enum.TextXAlignment.Left
-consoleBox.TextYAlignment = Enum.TextYAlignment.Top
-consoleBox.Font = Enum.Font.Code
-consoleBox.TextSize = 14
-consoleBox.Text = ""
-consoleBox.TextWrapped = false
-consoleBox.Parent = consolePage
-Instance.new("UICorner", consoleBox).CornerRadius = UDim.new(0,6)
-
--- Redirect print/warn
-local oldPrint, oldWarn = print, warn
-print = function(...)
-    local msg = table.concat({...}," ")
-    consoleBox.Text = consoleBox.Text.."\n"..msg
-    oldPrint(msg)
-end
-warn = function(...)
-    local msg = table.concat({...}," ")
-    consoleBox.Text = consoleBox.Text.."\n⚠ "..msg
-    oldWarn(msg)
-end
-
--- Tab switching
+-- ====== Tab switching and buttons ======
 homeBtn.MouseButton1Click:Connect(function() switchPage(homePage) end)
-settingsBtn.MouseButton1Click:Connect(function() switchPage(homePage) end)
+settingsBtn.MouseButton1Click:Connect(function() switchPage(settingsPage) end)
 terminalBtn.MouseButton1Click:Connect(function() switchPage(terminalPage) end)
 consoleBtn.MouseButton1Click:Connect(function() switchPage(consolePage) end)
 
--- Close button
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
--- Init
+-- minimize/maximize: preserve proportions (we use tween to scale main)
+local isMinimized = false
+local originalSize = main.Size
+local originalPos = main.Position
+minBtn.MouseButton1Click:Connect(function()
+    if not isMinimized then
+        TweenService:Create(main, CONFIG.TweenInfo, {Size = UDim2.new(0, CONFIG.SidebarWidth + 28, 0, 36)}):Play()
+        isMinimized = true
+    else
+        TweenService:Create(main, CONFIG.TweenInfo, {Size = originalSize}):Play()
+        isMinimized = false
+    end
+end)
+
+local maximized = false
+maxBtn.MouseButton1Click:Connect(function()
+    if not maximized then
+        TweenService:Create(main, CONFIG.TweenInfo, {Size = UDim2.new(1, -40, 1, -40), Position = UDim2.new(0, 20, 0, 20)}):Play()
+        maximized = true
+    else
+        TweenService:Create(main, CONFIG.TweenInfo, {Size = originalSize, Position = originalPos}):Play()
+        maximized = false
+    end
+end)
+
+-- init
 switchPage(homePage)
-print("✅ ModernSidebarGUI Loaded")
+print("✅ ModernSidebarGUI (highlight editor) loaded")
+
+-- ====== Notes / Limitations ======
+-- 1) This is a lightweight highlighter: it approximates tokenization and uses RichText. It will not be as fully-accurate as Studio.
+-- 2) Performance: large files may slow the highlight routine; there's a debounce for typing.
+-- 3) Autocomplete, function tooltips, and heavy parsing require a bigger system (AST) and are out of scope here.
+-- 4) If you want further improvements (better tokenization, more colors, autocomplete popup), tell me and I'll add the next step.
+
